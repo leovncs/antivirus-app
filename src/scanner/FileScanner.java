@@ -3,9 +3,14 @@ package scanner;
 import utils.Logger;
 
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class FileScanner {
     private final FileDetector fileDetector = new FileDetector();
+
+    // Thread pool to execute tasks
+    private final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public void scanDirectory(String rootDirectory){
         File directory = new File(rootDirectory);
@@ -21,7 +26,11 @@ public class FileScanner {
         }
 
         Logger.info("Scanning the directory: " + rootDirectory);
-        scanRecursive(directory);
+
+        // Submits the first task to the ExecutorService
+        executorService.submit(() -> scanRecursive(directory));
+
+
     }
 
     private void scanRecursive(File directory) {
