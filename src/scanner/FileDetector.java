@@ -15,9 +15,13 @@ public class FileDetector {
         String fileName = file.getName().toLowerCase();
 
         for (String target : TARGET_FILES){
-            if (fileName.equalsIgnoreCase(target))
+            if (fileName.equalsIgnoreCase(target.toLowerCase()))
                 return true;
             }
         return false;
+    }
+
+    public int getTargetFilesCount() {
+        return TARGET_FILES.length;
     }
 }
