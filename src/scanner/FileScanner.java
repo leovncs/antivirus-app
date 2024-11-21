@@ -3,6 +3,7 @@ package scanner;
 import utils.Logger;
 
 import java.io.File;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -25,7 +26,7 @@ public class FileScanner {
     private final AtomicBoolean allFilesDetected = new AtomicBoolean(false);
 
     // Método principal para escanear um diretório especificado
-    public void scanDirectory(String rootDirectory){
+    public void scanDirectory(String rootDirectory) {
         File directory = new File(rootDirectory);
 
         // Verifica se o diretório existe
@@ -35,7 +36,7 @@ public class FileScanner {
         }
 
         // Verifica se o caminho especificado é realmente um diretório
-        if (!directory.isDirectory()){
+        if (!directory.isDirectory()) {
             Logger.error("The specified path is not a directory: " + rootDirectory);
             return;
         }
@@ -59,6 +60,7 @@ public class FileScanner {
         }
 
         Logger.info("Verification completed.");
+        promptFileDeletion(); // Chama o método para solicitar exclusão dos arquivos
     }
 
     // Método recursivo para escanear diretórios e subdiretórios
@@ -82,8 +84,9 @@ public class FileScanner {
                 if (file.isFile()) {
                     // Verifica se o arquivo é um dos "alvos"
                     if (fileDetector.isTargetFile(file)) {
-                        Logger.warning("File detected: " + file.getAbsolutePath());
-                        detectedFiles.add(file.getName().toLowerCase());
+                        String absolutePath = file.getAbsolutePath();
+                        Logger.warning("File detected: " + absolutePath);
+                        detectedFiles.add(absolutePath);
 
                         // Verifica se todos os arquivos 'alvos' foram detectados
                         if (detectedFiles.size() == fileDetector.getTargetFilesCount()) {
@@ -91,7 +94,7 @@ public class FileScanner {
                             return;
                         }
                     }
-                // Se o arquivo for um diretório, envia uma nova tarefa para escanear seu conteúdo
+                    // Se o arquivo for um diretório, envia uma nova tarefa para escanear seu conteúdo
                 } else if (file.isDirectory()) {
                     executorService.submit(() -> scanRecursive(file));
                 }
@@ -99,5 +102,59 @@ public class FileScanner {
                 Logger.error("Permission denied to access: " + file.getAbsolutePath());
             }
         }
+    }
+
+    // Método para deletar arquivos e diretórios de forma recursiva.
+    private boolean deleteRecursive(File file) {
+        try {
+            // Se for um diretório, exclui os arquivos e subdiretórios primeiro
+            if (file.isDirectory()) {
+                File[] files = file.listFiles(); // Lista os conteúdos do diretório
+                if (files != null) {
+                    for (File f : files) {
+                        deleteRecursive(f); // Chamada recursiva para cada item
+                    }
+                }
+            }
+
+            // Tenta excluir o arquivo ou diretório vazio e retorna o resultado
+            if (file.delete()) {
+                Logger.info("Deleted: " + file.getAbsolutePath());
+                return true;
+            } else {
+                Logger.error("Failed to delete: " + file.getAbsolutePath());
+                return false;
+            }
+        } catch (SecurityException e) {
+            Logger.error("Permission denied to delete: " + file.getAbsolutePath() + " - " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Método para solicitar ao usuário a permissão para deletar os arquivos detectados
+    private void promptFileDeletion() {
+
+        // Se não houver arquivos detectados, exibe uma mensagem e encerra
+        if (detectedFiles.isEmpty()) {
+            Logger.info("No target files were detected. No action required.");
+            return;
+        }
+
+        System.out.println("Do you want to delete all detected files? (yes/no)");
+        Scanner scanner = new Scanner(System.in);
+        String userResponse = scanner.nextLine().trim().toLowerCase();
+
+        // Se o usuário confirmar com "yes", tenta deletar todos os arquivos
+        if (userResponse.equals("yes")) {
+            for (String filePath : detectedFiles) {
+                File file = new File(filePath);
+                deleteRecursive(file); // Chama o método de exclusão recursiva
+            }
+        } else {
+            // Caso contrário, informa que a exclusão foi cancelada
+            Logger.info("File deletion canceled by user. No files were deleted.");
+        }
+
+        scanner.close();
     }
 }
